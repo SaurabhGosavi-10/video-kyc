@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Jitsi Test</title>
+</head>
+<body>
+  <h2>Jitsi Meeting Test</h2>
+  <div id="jitsi-container" style="width: 800px; height: 600px;"></div>
+
+  <script src="https://meet.jit.si/external_api.js"></script>
+  <script>
+    const domain = "meet.jit.si";
+    const options = {
+      roomName: "testroom1234",
+      width: 800,
+      height: 600,
+      parentNode: document.getElementById("jitsi-container")
+    };
+    const api = new JitsiMeetExternalAPI(domain, options);
+  </script>
+</body>
+</html>

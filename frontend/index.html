@@ -1,0 +1,130 @@
+<!-- ~/video-kyc/frontend/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video KYC</title>
+</head>
+<body>
+    <h2>Video KYC App</h2>
+
+    <!-- Meeting Controls -->
+    <label for="user-id">User ID:</label>
+    <input type="text" id="user-id" placeholder="Enter User ID">
+    <button id="start-btn" disabled>Start Meeting</button> <!-- disabled by default -->
+    <button id="capture-btn" disabled>Capture Frame</button> <!-- disabled until meeting starts -->
+
+    <br><br>
+
+    <!-- Document Upload -->
+    <label for="doc-upload">Upload Document (Aadhaar / PAN / PDF):</label>
+    <input type="file" id="doc-upload" accept="image/*,.pdf">
+    <button id="upload-btn">Upload</button>
+
+    <!-- Preview -->
+    <div id="doc-preview" style="margin-top:20px;"></div>
+
+    <!-- Jitsi Meeting Container -->
+    <div id="jitsi-container" style="width: 800px; height: 600px; margin-top: 20px;"></div>
+
+    <!-- Jitsi External API -->
+    <script src="https://meet.jit.si/external_api.js"></script>
+    <script>
+        let api;
+
+        // Start Meeting
+        document.getElementById("start-btn").addEventListener("click", async () => {
+            const userId = document.getElementById("user-id").value;
+            if (!userId) { alert("Enter a User ID"); return; }
+
+            try {
+                const res = await fetch(`http://localhost:8000/create_meeting?user_id=${userId}`, {
+                    method: "POST"
+                });
+                const data = await res.json();
+                console.log("Meeting data:", data);
+
+                // Reset container
+                document.getElementById("jitsi-container").innerHTML = "";
+
+                const options = {
+                    roomName: data.room,
+                    width: 800,
+                    height: 600,
+                    parentNode: document.getElementById("jitsi-container"),
+                    configOverwrite: { startWithAudioMuted: false, startWithVideoMuted: false },
+                    interfaceConfigOverwrite: { SHOW_JITSI_WATERMARK: false, TOOLBAR_BUTTONS: ['microphone','camera','hangup'] }
+                };
+                api = new JitsiMeetExternalAPI(data.domain, options);
+
+                // ✅ Enable Capture Frame button once meeting starts
+                document.getElementById("capture-btn").disabled = false;
+
+            } catch (err) {
+                console.error("Error starting meeting:", err);
+            }
+        });
+
+        // Capture Frame
+        document.getElementById("capture-btn").addEventListener("click", async () => {
+            if (!api) { alert("Start meeting first"); return; }
+
+            const iframe = document.querySelector("#jitsi-container iframe");
+            if (!iframe) { alert("Meeting iframe not found"); return; }
+
+            const video = iframe.contentWindow.document.querySelector("video");
+            if (!video) { alert("Video element not found (blocked by CORS)"); return; }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext("2d").drawImage(video, 0, 0);
+
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append("file", blob, "frame.png");
+
+                const res = await fetch("http://localhost:8000/analyze_frame", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                alert(data.message);
+            }, "image/png");
+        });
+
+        // Upload Document
+        document.getElementById("upload-btn").addEventListener("click", async () => {
+            const fileInput = document.getElementById("doc-upload");
+            if (!fileInput.files.length) { alert("Select a document first"); return; }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const res = await fetch("http://localhost:8000/upload_document", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                alert(data.message);
+
+                // Preview uploaded document
+                if (fileInput.files[0].type === "application/pdf") {
+                    document.getElementById("doc-preview").innerHTML =
+                        `<embed src="http://localhost:8000/${data.filename}" type="application/pdf" width="600" height="400"/>`;
+                } else {
+                    document.getElementById("doc-preview").innerHTML =
+                        `<img src="http://localhost:8000/${data.filename}" alt="Uploaded Document" width="400"/>`;
+                }
+
+                // ✅ Enable Start Meeting button after document upload
+                document.getElementById("start-btn").disabled = false;
+
+            } catch (err) {
+                console.error("Error uploading document:", err);
+                alert("Upload failed");
+            }
+        });
+    </script>
+</body>
+</html>
