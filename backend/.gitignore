@@ -1,0 +1,12 @@
+# Environment variables - YOU ALREADY HAVE THIS
+.env
+
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+
+# IDE and editor folders (optional but good practice)
+.vscode/
+.idea/
