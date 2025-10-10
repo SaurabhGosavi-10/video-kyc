@@ -8,46 +8,78 @@
             max-width: 900px;
             margin: 20px auto;
             padding: 20px;
+            background: linear-gradient(135deg, #10002b 0%, #240046 100%);
+            min-height: 100vh;
         }
         h2 {
-            color: #333;
-            border-bottom: 2px solid #4CAF50;
+            color: #e0aaff;
+            border-bottom: 2px solid #9d4edd;
             padding-bottom: 10px;
+            text-align: center;
         }
         label {
-            display: inline-block;
+            display: block;
             margin-top: 10px;
             font-weight: bold;
+            color: #e0aaff;
+            text-align: center;
         }
         input[type="text"], input[type="file"] {
             padding: 8px;
-            margin: 5px 0 10px 0;
+            margin: 5px auto 10px auto;
             width: 300px;
-            border: 1px solid #ddd;
+            border: 1px solid #7b2cbf;
             border-radius: 4px;
+            background: #240046;
+            color: #e0aaff;
+            display: block;
+        }
+        input[type="text"]::placeholder {
+            color: #9d4edd;
+        }
+        input[type="file"]::file-selector-button {
+            background: #7b2cbf;
+            color: #e0aaff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background: #9d4edd;
         }
         button {
             padding: 10px 20px;
             margin: 5px;
             cursor: pointer;
-            background-color: #4CAF50;
+            background: linear-gradient(135deg, #7b2cbf 0%, #9d4edd 100%);
             color: white;
             border: none;
             border-radius: 4px;
             font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: inline-block;
         }
         button:disabled {
-            background-color: #cccccc;
+            background: #3c096c;
             cursor: not-allowed;
+            opacity: 0.6;
         }
         button:hover:not(:disabled) {
-            background-color: #45a049;
+            background: linear-gradient(135deg, #9d4edd 0%, #c77dff 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(157, 78, 221, 0.4);
         }
         #doc-preview {
             margin-top: 20px;
         }
+        #doc-preview h4 {
+            color: #c77dff;
+        }
         #doc-preview img, #doc-preview embed {
-            border: 2px solid #ddd;
+            border: 2px solid #7b2cbf;
             border-radius: 4px;
         }
         #jitsi-container {
@@ -55,15 +87,32 @@
             max-width: 800px;
             height: 600px;
             margin-top: 20px;
-            border: 2px solid #ddd;
+            border: 2px solid #9d4edd;
             border-radius: 4px;
+            box-shadow: 0 8px 24px rgba(157, 78, 221, 0.3);
         }
         .section {
-            background: #f9f9f9;
+            background: linear-gradient(135deg, #240046 0%, #3c096c 100%);
             padding: 15px;
             margin: 15px 0;
             border-radius: 4px;
-            border-left: 4px solid #4CAF50;
+            border-left: 4px solid #9d4edd;
+            box-shadow: 0 4px 12px rgba(16, 0, 43, 0.5);
+            text-align: center;
+        }
+        .success-message {
+            color: #c77dff;
+            font-weight: bold;
+            margin-top: 10px;
+            text-shadow: 0 0 10px rgba(199, 125, 255, 0.5);
+            text-align: center;
+        }
+        #doc-preview {
+            text-align: center;
+        }
+        #jitsi-container {
+            margin-left: auto;
+            margin-right: auto;
         }
     </style>
 </head>
@@ -82,6 +131,9 @@
         <input type="file" id="doc-upload" accept="image/*,.pdf">
         <button id="upload-btn">Upload</button>
         
+        <!-- Success message -->
+        <div id="upload-status" class="success-message"></div>
+
         <!-- Preview -->
         <div id="doc-preview"></div>
     </div>
@@ -100,13 +152,20 @@
     <script>
         let api;
         let currentMeetingId = null;
+        let documentUploaded = false; // restrict multiple uploads
 
         // Upload Document
         document.getElementById("upload-btn").addEventListener("click", async () => {
             const userId = document.getElementById("user-id").value.trim();
             const fileInput = document.getElementById("doc-upload");
-            
-            // Validate user ID first
+            const uploadBtn = document.getElementById("upload-btn");
+            const uploadStatus = document.getElementById("upload-status");
+
+            if (documentUploaded) {
+                alert("You have already uploaded a document.");
+                return;
+            }
+
             if (!userId) { 
                 alert("Please enter a User ID first!"); 
                 document.getElementById("user-id").focus();
@@ -124,7 +183,6 @@
             try {
                 console.log("Uploading document for user:", userId);
                 
-                // ADD user_id to the URL
                 const res = await fetch(`http://localhost:8000/upload_document?user_id=${encodeURIComponent(userId)}`, {
                     method: "POST",
                     body: formData
@@ -137,10 +195,14 @@
                     alert(`Upload failed: ${data.detail || 'Unknown error'}`);
                     return;
                 }
-                
-                alert(data.message);
 
-                // Preview uploaded document using Supabase URL
+                // Mark as uploaded and disable button
+                documentUploaded = true;
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = "Document Uploaded ";
+                uploadStatus.textContent = "Document uploaded successfully!";
+
+                // Preview uploaded document
                 if (fileInput.files[0].type === "application/pdf") {
                     document.getElementById("doc-preview").innerHTML =
                         `<h4>Document Preview:</h4><embed src="${data.url}" type="application/pdf" width="600" height="400"/>`;
@@ -149,7 +211,7 @@
                         `<h4>Document Preview:</h4><img src="${data.url}" alt="Uploaded Document" width="500"/>`;
                 }
 
-                // Enable Start Meeting button after document upload
+                // Enable Start Meeting button
                 document.getElementById("start-btn").disabled = false;
 
             } catch (err) {
@@ -203,7 +265,6 @@
                 };
                 api = new JitsiMeetExternalAPI(data.domain, options);
 
-                // Enable Capture Frame button once meeting starts
                 document.getElementById("capture-btn").disabled = false;
 
             } catch (err) {
@@ -217,36 +278,39 @@
             const userId = document.getElementById("user-id").value.trim();
             
             if (!api || !currentMeetingId) { 
-                alert("Start meeting first"); 
+                alert("Please start the meeting first"); 
                 return; 
             }
 
-            // Note: Direct frame capture from Jitsi iframe is blocked by CORS
-            // This is a limitation of browser security when accessing cross-origin iframes
-            alert("Frame capture: Due to browser security (CORS), direct capture from Jitsi iframe is blocked. In production, use Jibri recording service or implement server-side capture.");
-            
-            console.log("Frame capture requested for meeting:", currentMeetingId, "user:", userId);
-            
-            /* 
-            // For production, you would need to:
-            // 1. Use Jibri (Jitsi Broadcasting Infrastructure) for server-side recording
-            // 2. Or implement MediaStream capture on the backend
-            // 3. Or use screen capture API with user permission
-            
-            // Example of what the call would look like:
-            const formData = new FormData();
-            formData.append("file", blob, "frame.png");
-            
-            const res = await fetch(`http://localhost:8000/analyze_frame?meeting_id=${currentMeetingId}&user_id=${userId}`, {
-                method: "POST",
-                body: formData
-            });
-            const data = await res.json();
-            alert(data.message);
-            */
+            if (!userId) {
+                alert("User ID is required");
+                return;
+            }
+
+            try {
+                console.log("Capturing frame for meeting:", currentMeetingId);
+                
+                const res = await fetch(`http://localhost:8000/capture_frame?meeting_id=${encodeURIComponent(currentMeetingId)}`, {
+                    method: "POST"
+                });
+                
+                const data = await res.json();
+                console.log("Capture response:", data);
+                
+                if (!res.ok) {
+                    alert(`Frame capture failed: ${data.detail || 'Unknown error'}`);
+                    return;
+                }
+
+                alert(`✅ Frame captured successfully!\n${data.message || 'Saved on server'}`);
+
+            } catch (err) {
+                console.error("Error capturing frame:", err);
+                alert("❌ Frame capture failed: " + err.message);
+            }
         });
 
-        // Test backend connection on page load
+        // Health check
         window.addEventListener('load', async () => {
             try {
                 const res = await fetch('http://localhost:8000/health');
